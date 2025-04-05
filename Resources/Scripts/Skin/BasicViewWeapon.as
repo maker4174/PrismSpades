@@ -121,6 +121,7 @@ namespace spades {
 		protected float readyState;
 		protected bool reloading;
 		protected float reloadProgress;
+		protected float inspectProgress;
 		protected int ammo, clipSize;
 		protected float localFireVibration;
 		protected float sprintStateSmooth;
@@ -144,6 +145,10 @@ namespace spades {
 		float ReloadProgress {
 			set { reloadProgress = value; }
 			get { return reloadProgress; }
+		}
+		float InspectProgress{
+			set { inspectProgress = value; }
+			get { return inspectProgress; }
 		}
 		int Ammo {
 			set { ammo = value; }

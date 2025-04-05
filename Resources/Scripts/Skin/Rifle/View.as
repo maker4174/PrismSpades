@@ -1,401 +1,636 @@
 /*
  Copyright (c) 2013 yvt
-
+ Modified by Paratrooper
+ 
  This file is part of OpenSpades.
-
+ 
  OpenSpades is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
-
+ 
  OpenSpades is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
+ 
  You should have received a copy of the GNU General Public License
  along with OpenSpades.  If not, see <http://www.gnu.org/licenses/>.
-
  */
-
-namespace spades {
-	class ViewRifleSkin : BasicViewWeapon {
+ 
+ namespace spades {
+	// A class for the magazine that gets thrown out when the rifle is reloaded
+	class RifleMagazineParticle {
+		private Matrix4 originalMatrix;
+		private Vector3 worldVelocity;
+		private Vector3 worldAcceleration;
+		private Vector3 localEulerAngularVelocity; // don't use Euler angles, blah blah blah
+		
+		Matrix4 CreateEulerAnglesMatrix( Vector3 angles ) {
+			Matrix4 mat = CreateRotateMatrix( Vector3(1.0, 0.0, 0.0), angles.x );
+			mat = CreateRotateMatrix( Vector3(0.0, 1.0, 0.0), angles.y ) * mat;
+			mat = CreateRotateMatrix( Vector3(0.0, 0.0, 1.0), angles.z ) * mat;
+			
+			return mat;
+		}
+		
+		Matrix4 OriginalMatrix {
+			set { originalMatrix = value; }
+			get { return originalMatrix; }
+		}
+		
+		Vector3 WorldVelocity {
+			set { worldVelocity = value; }
+			get { return worldVelocity; }
+		}
+		
+		Vector3 WorldAcceleration {
+			set { worldAcceleration = value; }
+			get { return worldAcceleration; }
+		}
+		
+		Vector3 LocalEulerAngularVelocity {
+			set { localEulerAngularVelocity = value; }
+			get { return localEulerAngularVelocity; }
+		}
+		
+		private Renderer@ renderer;
+		private Model@ objectModel;
+		
+		RifleMagazineParticle() {};
+		RifleMagazineParticle(Renderer@ renderer) {
+			@this.renderer = renderer;
+			@objectModel = renderer.RegisterModel
+				("Models/Weapons/Rifle/MagazineEmpty.kv6");
+		}
+		
+		private float lifetime = 4.0;
+		private float currentLife = 0.0;
+		private bool isDead = true;
+		
+		bool IsDead {
+			set { isDead = value; }
+			get { return isDead; }
+		}
+		
+		void Start(Matrix4 pos, Vector3 velocity, Vector3 acceleration, Vector3 angularv) {
+			originalMatrix = pos;
+			worldVelocity = velocity;
+			worldAcceleration = acceleration;
+			localEulerAngularVelocity = angularv;
+			currentLife = 0.0;
+			isDead = false;
+		}
+		
+		void Update(float dt) {
+			if(!isDead) {
+				Matrix4 currentMatrix;
+				currentMatrix = currentMatrix * CreateTranslateMatrix(0.0, 0.0, -10.0);
+				currentMatrix = (CreateTranslateMatrix(worldVelocity*currentLife + worldAcceleration*currentLife*currentLife*0.5)) * originalMatrix;
+				currentMatrix = currentMatrix * CreateEulerAnglesMatrix(localEulerAngularVelocity * currentLife);
+			
+				ModelRenderParam param;
+				param.matrix = currentMatrix;
+				param.depthHack = false;
+				renderer.AddModel(objectModel, param);
+				
+				currentLife += dt;
+				
+				if(currentLife > lifetime) {
+					isDead = true;
+				}
+				
+				// don't let it fall off the map
+				if(currentMatrix.GetOrigin().z > 63.0) {
+					isDead = true;
+				} 
+			}
+		}
+	}
+	
+	// main weapon class
+	class ViewRifleSkin: 
+	IToolSkin, IViewToolSkin, IWeaponSkin,
+	BasicViewWeapon {
 		private AudioDevice@ audioDevice;
 		private Model@ gunModel;
-		private Model@ magazineModel;
-		private Model@ sightModel1;
-		private Model@ sightModel2;
-
+		private Model@ magazineEmptyModel;
+		private Model@ magazineFullModel;
+		private Model@ scopeModel;
+		private Model@ singleVoxelModel;
+		
+		private Image@ smallCircleImage;
+		private Image@[] muzzleFlashes(20);
+		
 		private AudioChunk@ fireSound;
 		private AudioChunk@ fireFarSound;
 		private AudioChunk@ fireStereoSound;
-		private AudioChunk@ fireSmallReverbSound;
-		private AudioChunk@ fireLargeReverbSound;
 		private AudioChunk@ reloadSound;
-
-		// Constants
-
-		// Attachment Points
-		private Vector3 magazineAttachment = Vector3(0, 0, 0);
-		private Vector3 rearSightAttachment = Vector3(0.0125F, -8.3F, -4.5F);
-		private Vector3 frontSightAttachment = Vector3(0.025F, 18.2F, -4.575F);
-
-		// Scales
-		private float globalScale = 0.033F;
-		private float magazineScale = 0.5F;
-		private float rearSightScale = 0.025F;
-		private float frontSightScale = 0.05F;
-
-		// A bunch of springs.
-		private ViewWeaponSpring recoilVerticalSpring = ViewWeaponSpring(200, 24);
-		private ViewWeaponSpring recoilBackSpring = ViewWeaponSpring(100, 16);
-		private ViewWeaponSpring recoilRotationSpring = ViewWeaponSpring(50, 8);
-		private ViewWeaponSpring horizontalSwingSpring = ViewWeaponSpring(100, 12);
-		private ViewWeaponSpring verticalSwingSpring = ViewWeaponSpring(100, 12);
-		private ViewWeaponSpring reloadPitchSpring = ViewWeaponSpring(150, 12, 0);
-		private ViewWeaponSpring reloadRollSpring = ViewWeaponSpring(150, 16, 0);
-		private ViewWeaponSpring reloadOffsetSpring = ViewWeaponSpring(150, 12, 0);
-		private ViewWeaponSpring sprintSpring = ViewWeaponSpring(100, 10, 0);
-		private ViewWeaponSpring raiseSpring = ViewWeaponSpring(200, 20, 1);
-		private Vector3 swingFromSpring = Vector3();
-
-		// A bunch of events.
-		private ViewWeaponEvent magazineTouched = ViewWeaponEvent();
-		private ViewWeaponEvent magazineRemoved = ViewWeaponEvent();
-		private ViewWeaponEvent magazineInserted = ViewWeaponEvent();
-		private ViewWeaponEvent chargingHandlePulled = ViewWeaponEvent();
-
-		// A bunch of states.
-		private double lastSprintState = 0;
-		private double lastRaiseState = 0;
-
-		Matrix4 AdjustToReload(Matrix4 mat) {
-			if (reloadProgress < 0.6) {
-				reloadPitchSpring.desired = 0.6;
-				reloadRollSpring.desired = 0.6;
-			} else if (reloadProgress < 0.9) {
-				reloadPitchSpring.desired = 0;
-				reloadRollSpring.desired = -0.6;
-			} else {
-				reloadPitchSpring.desired = 0;
-				reloadRollSpring.desired = 0;
-			}
-
-			if (magazineTouched.WasActivated()) {
-				magazineTouched.Acknowledge();
-				reloadPitchSpring.velocity = 4;
-			}
-
-			if (magazineRemoved.WasActivated()) {
-				magazineRemoved.Acknowledge();
-				reloadPitchSpring.velocity = -4;
-			}
-
-			if (magazineInserted.WasActivated()) {
-				magazineInserted.Acknowledge();
-				reloadPitchSpring.velocity = 8;
-			}
-
-			if (chargingHandlePulled.WasActivated()) {
-				chargingHandlePulled.Acknowledge();
-				reloadPitchSpring.velocity = 5;
-				reloadOffsetSpring.velocity = 2;
-			}
-
-			mat *= CreateEulerAnglesMatrix(Vector3(0, 0.6, 0) * reloadRollSpring.position);
-			mat *= CreateEulerAnglesMatrix(Vector3(-0.25, 0, 0) * reloadPitchSpring.position);
-			mat *= CreateTranslateMatrix(Vector3(0, -1, 0) * reloadOffsetSpring.position);
-
+		
+		// pivot of the weapon when viewed in slab6
+		private Vector3 pivot = Vector3(3.50, 33.0, 23.0);
+		// scale of the weapon
+		private float globalScale = 0.01;
+		// scale of the magazine, relative to the global scale
+		private float magazineScale = 0.5;
+		// the magazine that gets thrown
+		private RifleMagazineParticle mag;
+		// delta time between each frame
+		private float deltatime = 0.0;
+		// checks if mag has been thrown
+		// reset to false whenever reloading
+		private bool hasThrownMag = false;
+		
+		// Creates a rotation matrix from euler angles (in the form of a Vector3) x-y-z
+		Matrix4 CreateEulerAnglesMatrix( Vector3 angles ) {
+			Matrix4 mat = CreateRotateMatrix( Vector3(1.0, 0.0, 0.0), angles.x );
+			mat = CreateRotateMatrix( Vector3(0.0, 1.0, 0.0), angles.y ) * mat;
+			mat = CreateRotateMatrix( Vector3(0.0, 0.0, 1.0), angles.z ) * mat;
+			
 			return mat;
 		}
-
-		Vector3 GetMagazineOffset() {
-			Vector3 offsetPos = Vector3(0, -6, 8);
-
-			if (reloadProgress < 0.2) {
-				return magazineAttachment;
-			} else if (reloadProgress < 0.25) {
-				magazineRemoved.Activate();
-				float per = Min(1.0, (reloadProgress -0.2) / (0.25-0.2));
-				return Mix(magazineAttachment, offsetPos, SmoothStep(per));
-			} else if (reloadProgress < 0.4) {
-				return offsetPos;
-			} else if (reloadProgress < 0.5) {
-				float per = Min(1.0, (reloadProgress -0.4) / (0.5-0.4));
-				return Mix(offsetPos, magazineAttachment, SmoothStep(per));
-			} else {
-				magazineInserted.Activate();
-				return magazineAttachment;
-			}
+	
+		// select easing functions
+		float quadraticIn(float per) {
+			return (per*per);
 		}
-
-		Vector3 GetLeftHandOffset() {
-			Vector3 leftHandOffset = Vector3(1, 6, 1);
-			Vector3 magazineOffset = GetMagazineOffset() + Vector3(0, 0, 4);
-
-			if (reloadProgress < 0.1) {
-				float per = Min(1.0, reloadProgress / 0.1);
-				return Mix(leftHandOffset, magazineOffset, SmoothStep(per));
-			} else if (reloadProgress < 0.6) {
-				magazineTouched.Activate();
-				return magazineOffset;
-			} else if (reloadProgress < 1.0) {
-				float per = Min(1.0, (reloadProgress -0.6) / (1.0-0.9));
-				return Mix(magazineOffset, leftHandOffset, SmoothStep(per));
-			} else {
-				return leftHandOffset;
-			}
+		
+		float quadraticOut(float per) {
+			return -(per * (per-2));
 		}
-
-		Vector3 GetRightHandOffset() {
-			Vector3 rightHandOffset = Vector3(0, -8, 2);
-			Vector3 chargingHandleOffset = Vector3(-3, -4, -6);
-
-			// sprint animation
-			rightHandOffset -= Vector3(0, 3, 0.5) * sprintSpring.position;
-			chargingHandleOffset -= Vector3(0, 2, -3) * sprintSpring.position;
-
-			Vector3 handlePullingOffset = chargingHandleOffset + Vector3(0, -6, 0);
-
-			if (reloadProgress < 0.7) {
-				return rightHandOffset;
-			} else if (reloadProgress  < 0.8) {
-				float per = Min(1.0, (reloadProgress -0.7) / (0.8-0.7));
-				return Mix(rightHandOffset, chargingHandleOffset, SmoothStep(per));
-			} else if (reloadProgress < 0.82) {
-				return chargingHandleOffset;
-			} else if (reloadProgress < 0.87) {
-				chargingHandlePulled.Activate();
-				float per = Min(1.0, (reloadProgress -0.82) / (0.87-0.82));
-				return Mix(chargingHandleOffset, handlePullingOffset, SmoothStep(per));
-			} else if (reloadProgress < 1.0) {
-				float per = Min(1.0, (reloadProgress-0.87) / (1.0-0.87));
-				return Mix(handlePullingOffset, rightHandOffset, SmoothStep(per));
-			} else {
-				return rightHandOffset;
-			}
+		
+		float cubicIn(float per) {
+			return (per*per*per);
 		}
-
-		ViewRifleSkin(Renderer@ r, AudioDevice@ dev) {
+		
+		float cubicOut(float per) {
+			per = per-1;
+			return (per*per*per + 1);
+		}
+			
+		ViewRifleSkin(Renderer@ r, AudioDevice@ dev){
 			super(r);
 			@audioDevice = dev;
-			@gunModel = renderer.RegisterModel("Models/Weapons/Rifle/WeaponNoMagazine.kv6");
-			@magazineModel = renderer.RegisterModel("Models/Weapons/Rifle/Magazine.kv6");
-			@sightModel1 = renderer.RegisterModel("Models/Weapons/Rifle/Sight1.kv6");
-			@sightModel2 = renderer.RegisterModel("Models/Weapons/Rifle/Sight2.kv6");
-
-			@fireSound = dev.RegisterSound("Sounds/Weapons/Rifle/FireLocal.opus");
-			@fireFarSound = dev.RegisterSound("Sounds/Weapons/Rifle/FireFar.opus");
-			@fireStereoSound = dev.RegisterSound("Sounds/Weapons/Rifle/FireStereo.opus");
-			@reloadSound = dev.RegisterSound("Sounds/Weapons/Rifle/ReloadLocal.opus");
-
-			@fireSmallReverbSound = dev.RegisterSound("Sounds/Weapons/Rifle/V2AmbienceSmall.opus");
-			@fireLargeReverbSound = dev.RegisterSound("Sounds/Weapons/Rifle/V2AmbienceLarge.opus");
-
-			@scopeImage = renderer.RegisterImage("Gfx/Rifle.png");
-
-			raiseSpring.position = 1;
-		}
-
-		void Update(float dt) {
-			BasicViewWeapon::Update(dt);
-
-			recoilVerticalSpring.damping = Mix(16, 24, AimDownSightState);
-			recoilBackSpring.damping = Mix(12, 20, AimDownSightState);
-			recoilRotationSpring.damping = Mix(8, 16, AimDownSightState);
-
-			recoilVerticalSpring.Update(dt);
-			recoilBackSpring.Update(dt);
-			recoilRotationSpring.Update(dt);
-
-			horizontalSwingSpring.velocity += swing.x * 60 * dt * 2;
-			horizontalSwingSpring.Update(dt);
-			verticalSwingSpring.velocity += swing.z * 60 * dt * 2;
-			verticalSwingSpring.Update(dt);
-
-			reloadPitchSpring.Update(dt);
-			reloadRollSpring.Update(dt);
-			reloadOffsetSpring.Update(dt);
-
-			sprintSpring.Update(dt);
-			raiseSpring.Update(dt);
-
-			bool isSprinting;
-			if (sprintState >= 1)
-				isSprinting = true;
-			else if (sprintState > lastSprintState)
-				isSprinting = true;
-			else if (sprintState < lastSprintState)
-				isSprinting = false;
-			else if (sprintState <= 0)
-				isSprinting = false;
-			else
-				isSprinting = false;
-
-			lastSprintState = sprintState;
-			sprintSpring.desired = isSprinting ? 1 : 0;
-
-			bool isRaised;
-			if (raiseState >= 1)
-				isRaised = true;
-			else if (raiseState > lastRaiseState)
-				isRaised = true;
-			else if (raiseState < lastRaiseState)
-				isRaised = false;
-			else if (raiseState <= 0)
-				isRaised = false;
-			else
-				isRaised = false;
-
-			lastRaiseState = raiseState;
-			raiseSpring.desired = isRaised ? 0 : 1;
-
-			swingFromSpring = Vector3(horizontalSwingSpring.position, 0, verticalSwingSpring.position);
-		}
-
-		void WeaponFired() {
-			BasicViewWeapon::WeaponFired();
-
-			if (!IsMuted) {
-				Vector3 origin = Vector3(0.4F, -0.3F, 0.5F);
-				AudioParam param;
-				param.referenceDistance = 4.0F;
-				param.volume = 1.0F;
-				audioDevice.PlayLocal(fireFarSound, origin, param);
-				param.referenceDistance = 1.0F;
-				audioDevice.PlayLocal(fireStereoSound, origin, param);
-
-				param.volume = 8.0F * environmentRoom;
-				audioDevice.PlayLocal((environmentSize < 0.5F)
-					? fireSmallReverbSound : fireLargeReverbSound, origin, param);
+			@gunModel = renderer.RegisterModel
+				("Models/Weapons/Rifle/WeaponNoMagazine.kv6");
+			@magazineEmptyModel = renderer.RegisterModel
+				("Models/Weapons/Rifle/MagazineEmpty.kv6");
+			@magazineFullModel = renderer.RegisterModel
+				("Models/Weapons/Rifle/MagazineFull.kv6");
+			@scopeModel = renderer.RegisterModel
+				("Models/Weapons/Rifle/Scope.kv6");
+			@singleVoxelModel = renderer.RegisterModel
+				("Models/Weapons/Rifle/SingleVoxel.kv6");
+			@smallCircleImage = renderer.RegisterImage
+			 	("Gfx/SmallCircle.png");
+			
+			@fireSound = dev.RegisterSound
+				("Sounds/Weapons/Rifle/FireLocal.wav");
+			@fireFarSound = dev.RegisterSound
+				("Sounds/Weapons/Rifle/FireFar.wav");
+			@fireStereoSound = dev.RegisterSound
+				("Sounds/Weapons/Rifle/FireStereo.wav");
+			@reloadSound = dev.RegisterSound
+				("Sounds/Weapons/Rifle/ReloadLocal.wav");
+				
+			for ( uint i = 0; i < 20; i++ ) {
+				string dir = "Gfx/Flash/Weapons/Rifle/";
+				dir += i / 100; 			// hundreds
+				dir += i % 100 / 10;		// tens
+				dir += i % 10;				// units
+				dir += ".png";
+				@muzzleFlashes[i] = renderer.RegisterImage( dir );
 			}
-
-			recoilVerticalSpring.velocity += 1.5;
-			recoilBackSpring.velocity += 1.5;
-			recoilRotationSpring.velocity += (GetRandom() * 2 - 1);
+			
+			mag = RifleMagazineParticle(renderer);
 		}
-
-		void ReloadingWeapon() {
-			magazineTouched.Reset();
-			magazineRemoved.Reset();
-			magazineInserted.Reset();
-			chargingHandlePulled.Reset();
-
-			if (!IsMuted){
-				Vector3 origin = Vector3(0.4F, -0.3F, 0.5F);
+		
+		void Update(float dt) {			
+			deltatime = dt;
+			BasicViewWeapon::Update(dt);
+		}
+		
+		void WeaponFired(){
+			BasicViewWeapon::WeaponFired();
+			
+			if(!IsMuted){
+				Vector3 origin = Vector3(0.4, -0.3, 0.5);
 				AudioParam param;
-				param.volume = 0.5F;
+				param.volume = 8.0;
+				audioDevice.PlayLocal(fireSound, origin, param);
+				
+				param.referenceDistance = 4.0;
+				param.volume = 1.0;
+				audioDevice.PlayLocal(fireFarSound, origin, param);
+				param.referenceDistance = 1.0;
+				audioDevice.PlayLocal(fireStereoSound, origin, param);
+			}
+		}
+		
+		void ReloadingWeapon() {
+			hasThrownMag = false;
+			if(!IsMuted){
+				Vector3 origin = Vector3(0.4, -0.3, 0.5);
+				AudioParam param;
+				param.volume = 0.2;
 				audioDevice.PlayLocal(reloadSound, origin, param);
 			}
 		}
-
-		float GetZPos() { return 0.2F - AimDownSightStateSmooth * 0.05F; }
-
-		Matrix4 GetViewWeaponMatrix() {
+		
+		// draw the 2D crosshairs
+		void Draw2D() {
+			ConfigItem r_renderer("r_renderer");
+			// if we're NOT using the gl renderer, draw a ring
+			if(r_renderer.StringValue != "gl" && AimDownSightStateSmooth > 0.99) {
+				renderer.ColorNP = (Vector4(1.0, 1.0, 1.0, 1.0));
+				renderer.DrawImage(smallCircleImage,
+				Vector2((renderer.ScreenWidth-smallCircleImage.Width) * 0.5,
+					(renderer.ScreenHeight-smallCircleImage.Height) * 0.5));
+			}
+			if(AimDownSightStateSmooth < 0.99) {
+				BasicViewWeapon::Draw2D();
+			}
+		}
+		
+		// redefined from BasicViewWeapon.as
+		Matrix4 GetViewWeaponMatrix() {	
 			Matrix4 mat;
+			// sprinting animation					
+			if(sprintState > 0.0) {
+				sprintState = quadraticIn(sprintState);
+				mat = CreateEulerAnglesMatrix(Vector3(0.2, -0.0, -0.2)*sprintState) * mat;
+				mat = CreateTranslateMatrix(Vector3(0.1, -0.2, 0.05)*sprintState) * mat;
+			}
 			
-			float sp = 1.0F - AimDownSightStateSmooth;
-
-			// sprint animation
-			mat = CreateEulerAnglesMatrix(Vector3(0.3F, -0.1F, -0.55F) * sprintSpring.position * sp) * mat;
-			mat = CreateTranslateMatrix(Vector3(0.23F, -0.05F, 0.15F) * sprintSpring.position * sp) * mat;
-
 			// raise gun animation
-			mat = CreateRotateMatrix(Vector3(0, 0, 1), raiseSpring.position * -1.3F * sp) * mat;
-			mat = CreateRotateMatrix(Vector3(0, 1, 0), raiseSpring.position * 0.2F * sp) * mat;
-			mat = CreateTranslateMatrix(Vector3(0.1F, -0.3F, 0.1F) * raiseSpring.position * sp) * mat;
-
+			if(raiseState < 1.0) {
+				float putdown = 1.0 - raiseState;
+				putdown = cubicIn(putdown);
+				mat = CreateRotateMatrix(Vector3(0.0, 0.0, 1.0),
+					putdown * -1.3) * mat;
+				mat = CreateRotateMatrix(Vector3(0.0, 1.0, 0.0),
+					putdown * 0.2) * mat;
+				mat = CreateTranslateMatrix(Vector3(0.1, -0.3, 0.8)
+					* putdown) * mat;
+			}
+			
 			// recoil animation
-			Vector3 recoilRot(0, 0, 0);
-			recoilRot.x = -1.0F * recoilVerticalSpring.position;
-			recoilRot.y = 0.3F * recoilRotationSpring.position;
-			recoilRot.z = 0.3F * recoilRotationSpring.position;
-			Vector3 recoilOffset = Vector3(0, 0, -0.1) * recoilVerticalSpring.position;
-			recoilOffset -= Vector3(0, 1.2, 0) * recoilBackSpring.position;
-			mat = CreateEulerAnglesMatrix(recoilRot * sp) * mat;
-			mat = mat * CreateTranslateMatrix(recoilOffset);
+			Vector3 recoilRot;
+			Vector3 recoilOffset;
+			if(readyState < 0.1) {
+				float per = (readyState/0.1);
+				per = cubicOut(per);
+				recoilRot = Vector3(-0.1, 0.0, 0.0) * per;
+				recoilOffset = Vector3(0.0, -0.08, -0.02) * per;
+			} else if(readyState < 0.2) {
+				recoilRot = Vector3(-0.1, 0.0, 0.0);
+				recoilOffset = Vector3(0.0, -0.08, -0.02);
+			} else if(readyState < 0.4) {
+				float per = ( (readyState-0.2)/(0.4-0.2) );
+				per = SmoothStep(per);
+				recoilRot = Mix(Vector3(-0.1, 0.0, 0.0), Vector3(0.05, 0.0, 0.0), per);
+				recoilOffset = Mix(Vector3(0.0, -0.08, -0.02), Vector3(0.0, 0.0, 0.0), per);
+			} else if(readyState < 0.8) {
+				float per = ( (readyState-0.4)/(0.8-0.4) );
+				per = SmoothStep(per);
+				recoilRot = Mix(Vector3(0.05, 0.0, 0.0), Vector3(0.0, 0.0, 0.0), per);
+				recoilOffset = Vector3(0.0, 0.0, 0.0);
+			}
+			// No recoil when the player is aiming. Multiply by (1 - aimScopingState)
+			float unSightState = 1.0-AimDownSightStateSmooth;
+			mat = CreateEulerAnglesMatrix(recoilRot*unSightState) * mat;
+			mat = mat * CreateTranslateMatrix(recoilOffset*unSightState);
+			
+			// default offset from when the player is not aiming (i.e. default position)
+			mat = CreateTranslateMatrix( Mix( Vector3(-0.13, 0.3,0.2), Vector3(0.0, 0.05, -(4.5-pivot.z)*globalScale), AimDownSightStateSmooth)) * mat; 
 
-			Vector3 trans(0, 0, 0);
-			trans += Vector3(-0.13F * sp, 0.5F, GetZPos());
-			trans += swing * GetMotionGain();
-			mat = CreateTranslateMatrix(trans) * mat;
+			// offset from when the player is walking
+			// again, don't move the gun when the weapon is aimed
+			mat = CreateTranslateMatrix(swing * GetMotionGain() * unSightState) * mat;
 
 			// twist the gun when strafing
-			Vector3 strafeRot = Vector3(-2.0*swingFromSpring.z, 0, 2.0*swingFromSpring.x);
-			mat = mat * CreateEulerAnglesMatrix(strafeRot * sp);
-
-			Vector3 pivot = Vector3(0.05F, 0.0F, 0.025F);
-			Vector3 sightPos = (frontSightAttachment - pivot) * globalScale;
-			mat = AdjustToAlignSight(mat, sightPos, AimDownSightStateSmooth);
-			mat = AdjustToReload(mat);
-
+			// don't rotate when scoped
+			mat = mat * CreateEulerAnglesMatrix(Vector3(0.0, 2.0*swing.x, 0.0)*unSightState);
+			
 			return mat;
 		}
+		
+		void AddToScene() {	
+			Matrix4 mat = CreateScaleMatrix(globalScale);
+			mat = GetViewWeaponMatrix() * mat;
+			
+			Vector3 leftHand, rightHand;
+			
+			leftHand = mat * (Vector3(4.5, 72.0, 30.0)-pivot);
+			rightHand = mat * (Vector3(4.0, 37.0, 22.0)-pivot);
+			
+			Matrix4 weapMatrix;
+			Matrix4 magazineMatrix;
+			
+			mag.Update(deltatime);
+			if(AimDownSightStateSmooth < 0.99) { // if we're not scoped in, then
+				// draw weapon
+				ModelRenderParam param;
+				param.depthHack = true;
+				
+				if(reloadProgress < 1.0) { // long reloading sequence ahead. please collapse.
+					if(reloadProgress < 0.16) { // rotate gun clockwise and raise gun while left hand grabs mag
+						float per = ( (reloadProgress-0.0)/(0.16-0.0) );
+						per = quadraticOut(per);
+						mat = mat * CreateEulerAnglesMatrix( Vector3(-0.5, 0.5, -0.8) * per );
 
-		// IWeaponSkin3 (override BasicViewWeapon::{get_MuzzlePosition, get_CaseEjectPosition})
-		Vector3 MuzzlePosition { 
-			get {
-				return eyeMatrix * GetViewWeaponMatrix() * (Vector3(0.0F, 0.7F, -0.075F) + ManualViewWeaponOffset); 
-			} 
-		}
-		Vector3 CaseEjectPosition { 
-			get { 
-				return eyeMatrix * GetViewWeaponMatrix() * (Vector3(0.0F, -0.1F, -0.05F) + ManualViewWeaponOffset); 
-			} 
-		}
+						leftHand = mat * (Mix( Vector3(4.5, 72.0, 30.0), Vector3(20.0, 0.0, 70.0), per) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.24) { // jostle gun a bit
+						float per = ( (reloadProgress-0.16)/(0.24-0.16) );
+						per = SmoothStep(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.5, 0.5, -0.8), Vector3(-0.45, 0.4, -0.8), per) );
+						leftHand = mat * Vector3(20.0, 0.0, 70.0);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.32) { // hit the magazine release
+						float per = ( (reloadProgress-0.24)/(0.32-0.24) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.45, 0.4, -0.8), Vector3(-0.4, 0.4, -0.8), per) );
+						leftHand = mat * (Mix( Vector3(20.0, 0.0, 70.0), Vector3(9.5, 46.0, 33.0), per) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
 
-		void Draw2D() {
-			BasicViewWeapon::Draw2D();
-		}
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+						
+						// temporary magazine attached to the left hand
+						param.matrix = eyeMatrix 
+							* mat 
+							* CreateTranslateMatrix(Mix( Vector3(20.0, 0.0, 70.0), Vector3(9.5, 46.0, 33.0), per) - pivot) 
+							* CreateTranslateMatrix(-2.0, 1.5, -15.0)
+							* CreateScaleMatrix(magazineScale);
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.38) { // release mag and move hand down
+						float per = ( (reloadProgress-0.32)/(0.38-0.32) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.4, 0.4, -0.8), Vector3(-0.5, 0.45, -0.8), per) );
+						leftHand = mat * (Mix( Vector3(9.5, 46.0, 33.0), Vector3(5.5, 50.0, 55.0), per) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
 
-		void AddToScene() {
-			if (AimDownSightStateSmooth > 0.99F) {
-				if (cg_pngScope.IntValue > 0) {
-					LeftHandPosition = Vector3(0.0F, 0.0F, 0.0F);
-					RightHandPosition = Vector3(0.0F, 0.0F, 0.0F);
-					return;
+						weapMatrix = eyeMatrix * mat;					
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+
+						param.matrix = eyeMatrix 
+							* mat 
+							* CreateTranslateMatrix(Mix( Vector3(9.5, 46.0, 33.0), Vector3(5.5, 50.0, 55.0), per) - pivot) 
+							* CreateTranslateMatrix(-2.0, 1.5, -15.0)
+							* CreateScaleMatrix(magazineScale);
+						renderer.AddModel(magazineFullModel, param);
+
+						if(!hasThrownMag) {
+							mag.Start(weapMatrix * CreateScaleMatrix(magazineScale) * CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) / magazineScale ),
+								weapMatrix.GetAxis(1)*4.0/globalScale,
+								Vector3(0.0, 0.0, 0.3)/globalScale,
+								Vector3(-24.0, 0.0, 0.0));
+							hasThrownMag = true;
+						}
+					} else if(reloadProgress < 0.44) {// shove the mag into the well
+						float per = ( (reloadProgress-0.38)/(0.44-0.38) );
+						per = quadraticIn(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.5, 0.45, -0.8), Vector3(-0.45, 0.45, -0.8), per) );
+						leftHand = mat * (Mix( Vector3(5.5, 50.0, 55.0), Vector3(5.5, 54.0, 37.0), per) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+						
+						param.matrix = eyeMatrix * mat 
+							* CreateTranslateMatrix(Mix( Vector3(5.5, 50.0, 55.0), Vector3(5.5, 54.0, 37.0), per) - pivot) 
+							* CreateTranslateMatrix(-2.0, 1.5, -15.0)
+							* CreateScaleMatrix(magazineScale);
+						renderer.AddModel(magazineFullModel, param);					
+					} else if(reloadProgress < 0.5) { // lower hand as if trying to push mag farther, gun rises due to shove
+						float per = ( (reloadProgress-0.44)/(0.5-0.44) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.45, 0.45, -0.8), Vector3(-0.55, 0.45, -0.8), per) );
+						leftHand = mat * (Mix( Vector3(5.5, 54.0, 42.0), Vector3(5.5, 54.0, 65.0), per) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.54) { // forcefully push mag, gun lowers a bit
+						float per = ( (reloadProgress-0.50)/(0.54-0.50) );
+						per = quadraticIn(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.55, 0.45, -0.8), Vector3(-0.55, 0.45, -0.8), per) );
+						leftHand = mat * (Mix( Vector3(5.5, 54.0, 65.0), Vector3(5.5, 54.0, 41.0), per) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.60) { // hold mag for a bit. Let gun rise due to force.
+					float per = ( (reloadProgress-0.54)/(0.60-0.54) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.55, 0.45, -0.8), Vector3(-0.8, 0.45, -0.8), per) );
+						leftHand = mat * (Vector3(5.5, 54.0, 41.0) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.70) { // gun levels slightly. left arm moves to default position.
+						float per = ( (reloadProgress-0.60)/(0.70-0.60) );
+						per = SmoothStep(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.8, 0.45, -0.8), Vector3(-0.2, 0.1, -0.4), per) );
+						leftHand = mat * (Mix( Vector3(5.5, 54.0, 41.0), Vector3(4.5, 72.0, 30.0), per) - pivot);
+						rightHand = mat * (Vector3(4.0, 37.0, 22.0) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.78) { // move right arm to the charging handle
+						float per = ( (reloadProgress-0.70)/(0.78-0.70) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.2, 0.1, -0.4), Vector3(0.1, 0.1, 0.0), per) );
+						leftHand = mat * (Vector3(4.5, 72.0, 30.0)-pivot);
+						rightHand = mat * (Mix( Vector3(4.0, 37.0, 22.0), Vector3(-4.0, 80.0, 15.0), per) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.86) { // pull the charging handle
+						float per = ( (reloadProgress-0.78)/(0.86-0.78) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(0.1, 0.1, 0.0), Vector3(-0.2, 0.0, 0.0), per) );
+						leftHand = mat * (Vector3(4.5, 72.0, 30.0)-pivot);
+						rightHand = mat * (Mix( Vector3(-4.0, 80.0, 15.0), Vector3(-4.0, 60.0, 15.0), per) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 0.9) { // wait for the charging handle to return
+						float per = ( (reloadProgress-0.86)/(0.9-0.86) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.2, 0.0, 0.0), Vector3(-0.15, 0.0, 0.0), per) );
+						leftHand = mat * (Vector3(4.5, 72.0, 30.0)-pivot);
+						rightHand = mat * (Mix( Vector3(-4.0, 60.0, 15.0), Vector3(-8.0, 60.0, 10.0), per) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					} else if(reloadProgress < 1.0) { // right arm to original position
+						float per = ( (reloadProgress-0.9)/(1.0-0.9) );
+						per = quadraticOut(per);
+						
+						mat = mat * CreateEulerAnglesMatrix( Mix( Vector3(-0.15, 0.0, 0.0), Vector3(0.0, 0.0, 0.0), per) );
+						leftHand = mat * (Vector3(4.5, 72.0, 30.0)-pivot);
+						rightHand = mat * (Mix( Vector3(-8.0, 60.0, 10.0), Vector3(4.0, 37.0, 22.0), per) - pivot);
+						
+						weapMatrix = eyeMatrix * mat;
+						param.matrix = weapMatrix;
+						renderer.AddModel(gunModel, param);
+					
+						magazineMatrix = weapMatrix
+							* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+							* CreateScaleMatrix(magazineScale);
+						param.matrix = magazineMatrix;
+						renderer.AddModel(magazineFullModel, param);
+					}
+				} else { // if we're not reloading, then draw gun as normal
+					weapMatrix = eyeMatrix * mat;
+					param.matrix = weapMatrix;
+					renderer.AddModel(gunModel, param);
+					
+					magazineMatrix = weapMatrix
+						* CreateTranslateMatrix( (Vector3(3.5, 55.5, 21.0)-pivot) )
+						* CreateScaleMatrix(magazineScale);
+					param.matrix = magazineMatrix;
+					renderer.AddModel(magazineFullModel, param);
+				}
+				
+				LeftHandPosition = leftHand;
+				RightHandPosition = rightHand;
+			} else { // else if we are scoped in, then draw the scope (if we can)
+				// hide the hands
+				leftHand = Vector3(0.0, 0.0, 0.0);
+				rightHand = Vector3(0.0, 0.0, 0.0);
+				// Non-uniform scaling is not allowed when using the software renderer.
+				// ONLY draw the crosshairs and scope if we're using the gl renderer. 
+				// Otherwise, just draw an image in the center (check Draw2D).
+				ConfigItem r_renderer("r_renderer");
+				if(r_renderer.StringValue == "gl") {
+				float putdown = 1.0 - raiseState;
+				putdown = cubicIn(putdown);
+					ModelRenderParam param;
+					Matrix4 scopeMatrix = eyeMatrix * CreateScaleMatrix(0.01f) * CreateTranslateMatrix(Vector3(0.0, 50.0, 0.0))*CreateRotateMatrix( Vector3(0.0, 20.0, 0.0),20* swing.x);
+					param.matrix = scopeMatrix;
+					param.depthHack = true;
+					renderer.AddModel(scopeModel, param);
+				
+					// vertical hair
+					param.matrix = scopeMatrix 
+						* CreateTranslateMatrix(0.0, 30.0, 0.0)
+						* CreateScaleMatrix(0.1, 0.1, 40.0);
+					renderer.AddModel(singleVoxelModel, param);	
+					
+					// horizontal hair
+					param.matrix = scopeMatrix 
+						* CreateTranslateMatrix(0.0, 30.0, 0.0)
+						* CreateScaleMatrix(40.0, 0.1, 0.1);
+					renderer.AddModel(singleVoxelModel, param);
+				}
+				LeftHandPosition = leftHand;
+				RightHandPosition = rightHand;
+			}
+			
+			// Muzzle flash
+			// Only appears if we're not scoped in
+			if(AimDownSightStateSmooth < 1.0) { 
+				if( readyState < 0.04 * (1/0.5) ) { // muzzle flash appears for 0.06 seconds ( at least 2 frames @ 30 fps or 3 frames @ 60 fps to solve screen tearing
+					renderer.ColorP = Vector4(1.0, 0.7, 0.4, 0.0);
+					renderer.AddSprite( muzzleFlashes[GetRandom(muzzleFlashes.length)], weapMatrix*(Vector3(3.5, 200, 12.5)-pivot), 0.5+0.2*GetRandom() , 2.0*PiF*GetRandom());
 				}
 			}
-
-			Matrix4 mat = GetViewWeaponMatrix()
-				* CreateScaleMatrix(globalScale);
-
-			Vector3 leftHand, rightHand;
-			leftHand = mat * GetLeftHandOffset();
-			rightHand = mat * GetRightHandOffset();
-
-			ModelRenderParam param;
-			param.depthHack = true;
-
-			Matrix4 weapMatrix = eyeMatrix * mat;
-
-			// draw weapon
-			param.matrix = weapMatrix
-				* CreateScaleMatrix(0.23F)
-				* CreateTranslateMatrix(0.5F, -3.0F, 7.0F);
-			renderer.AddModel(gunModel, param);
-
-			// draw sights
-			param.matrix = weapMatrix
-				* CreateTranslateMatrix(rearSightAttachment)
-				* CreateScaleMatrix(rearSightScale);
-			renderer.AddModel(sightModel1, param); // rear
-
-			param.matrix = weapMatrix
-				* CreateTranslateMatrix(frontSightAttachment)
-				* CreateScaleMatrix(frontSightScale);
-			renderer.AddModel(sightModel2, param); // front pin
-
-			// draw magazine
-			param.matrix = weapMatrix
-				* CreateTranslateMatrix(GetMagazineOffset());
-			renderer.AddModel(magazineModel, param);
-
-			LeftHandPosition = leftHand;
-			RightHandPosition = rightHand;
 		}
 	}
-
+	
 	IWeaponSkin@ CreateViewRifleSkin(Renderer@ r, AudioDevice@ dev) {
 		return ViewRifleSkin(r, dev);
 	}

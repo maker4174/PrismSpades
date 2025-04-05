@@ -219,24 +219,67 @@ namespace spades {
 #pragma mark - HUD Drawings
 
 		void Client::DrawSplash() {
-			Handle<IImage> img;
-			Vector2 siz;
-			Vector2 scrSize = {renderer->ScreenWidth(), renderer->ScreenHeight()};
+    Handle<IImage> img;
+    Vector2 scrSize = {renderer->ScreenWidth(), renderer->ScreenHeight()};
 
-			renderer->SetColorAlphaPremultiplied(MakeVector4(0, 0, 0, 1));
-			img = renderer->RegisterImage("Gfx/White.tga");
-			renderer->DrawImage(img, AABB2(0, 0, scrSize.x, scrSize.y));
+    // Load the white texture to apply the gradient
+    img = renderer->RegisterImage("Gfx/White.tga");
+    if (!img) {
+        SPLog("ERROR: Failed to load background image!", SO_ERROR);
+        return;
+    }
 
-			renderer->SetColorAlphaPremultiplied(MakeVector4(1, 1, 1, 1.));
-			img = renderer->RegisterImage("Gfx/Title/Logo.png");
+    // Colors: Black (top) → Red (bottom)
+    Vector4 color1 = MakeVector4(0.514, 0.227, 0.705, 1.0);  // #833ab4 (purple)
+    Vector4 color2 = MakeVector4(0.992, 0.114, 0.114, 1.0);  // #fd1d1d (red)
+    Vector4 color3 = MakeVector4(0.988, 0.690, 0.270, 1.0);  // #fcb045 (orange)
 
-			siz = MakeVector2(img->GetWidth(), img->GetHeight());
-			siz *= std::min(1.f, scrSize.x / siz.x * 0.5f);
-			siz *= std::min(1.f, scrSize.y / siz.y);
+    // Draw gradient row by row (interpolating color)
+    for (float y = 0; y < scrSize.y; y++) {
+        float t = y / scrSize.y; // Interpolation factor (0 at top, 1 at bottom)
+       Vector4 color = color1 * t + color2 * (1.0f - abs(2.0f * t - 1.0f)) + color3 * (1.0f - t);
+  // FIXED LERP!
+        renderer->SetColorAlphaPremultiplied(color);
+        renderer->DrawImage(img, Vector2(0, y), Vector2(scrSize.x, y + 1), Vector2(0, y + 1), 
+                            AABB2(0, 0, scrSize.x, scrSize.y));
+    }
 
-			renderer->DrawImage(
-			  img, AABB2((scrSize.x - siz.x) * .5f, (scrSize.y - siz.y) * .5f, siz.x, siz.y));
-		}
+    // Load and rotate the splash logo
+    img = renderer->RegisterImage("Gfx/Title/Logo.png");
+    if (!img) return;
+
+    Vector2 siz = MakeVector2(img->GetWidth(), img->GetHeight());
+    siz *= std::min(1.f, scrSize.x / siz.x * 0.5f);
+    siz *= std::min(1.f, scrSize.y / siz.y);
+    Vector2 center = Vector2(scrSize.x * 0.5f, scrSize.y * 0.5f);
+
+    static float angle = 0.0f;
+    angle += 0.02f;
+    float cosTheta = cosf(angle);
+    float sinTheta = sinf(angle);
+    float hw = siz.x * 0.5f, hh = siz.y * 0.5f;
+
+    auto Rotate = [&](Vector2 point) -> Vector2 {
+        return Vector2(
+            point.x * cosTheta - point.y * sinTheta,
+            point.x * sinTheta + point.y * cosTheta
+        ) + center;
+    };
+
+    Vector2 rp1 = Rotate(Vector2(-hw, -hh));
+    Vector2 rp2 = Rotate(Vector2(hw, -hh));
+    Vector2 rp3 = Rotate(Vector2(-hw, hh));
+    Vector2 rp4 = Rotate(Vector2(hw, hh));
+
+    renderer->SetColorAlphaPremultiplied(MakeVector4(1, 1, 1, 1));  // Keep logo white
+    renderer->DrawImage(img, rp1, rp2, rp3, AABB2(0, 0, img->GetWidth(), img->GetHeight()));
+}
+
+
+
+
+
+
 
 		void Client::DrawStartupScreen() {
 			Handle<IImage> img;
@@ -522,13 +565,18 @@ namespace spades {
 				Vector2 pos = {scrWidth * .5f, scrHeight * .5f};
 				pos.x -= img->GetWidth() * .5f;
 				pos.y -= img->GetHeight() * .5f;
+				
+				float time = world->GetTime(); // ✅ Try getting time from Renderer
+		         	float rColor = (sin(time * 4.0F) + 1.0F) * 0.5F;
+				float gColor = (sin(time * 4.0F + 2.0F) + 1.0F) * 0.5F;
+				float bColor = (sin(time * 4.0F + 4.0F) + 1.0F) * 0.5F;
 
 				float op = hitFeedbackIconState;
 				Vector4 color;
 				if (hitFeedbackFriendly) {
 					color = MakeVector4(0.02f, 1.f, 0.02f, 1.f);
 				} else {
-					color = MakeVector4(1.f, 0.02f, 0.04f, 1.f);
+					color = MakeVector4(rColor, gColor, bColor, 1.f);
 				}
 				color *= op;
 

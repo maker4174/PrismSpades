@@ -69,6 +69,7 @@ DEFINE_SPADES_SETTING(cg_keyToolBlock, "2");
 DEFINE_SPADES_SETTING(cg_keyToolWeapon, "3");
 DEFINE_SPADES_SETTING(cg_keyToolGrenade, "4");
 DEFINE_SPADES_SETTING(cg_keyReloadWeapon, "r");
+DEFINE_SPADES_SETTING(cg_keyInspect, "g");
 DEFINE_SPADES_SETTING(cg_keyFlashlight, "f");
 DEFINE_SPADES_SETTING(cg_keyLastTool, "");
 
@@ -671,7 +672,10 @@ namespace spades {
 							p.Reload();
 							net->SendReload();
 						}
-					} else if (CheckKey(cg_keyToolSpade, name) && down) {
+					}else if (CheckKey(cg_keyInspect,name) && down){
+					   Weapon &w = p.GetWeapon();
+					   
+					}else if (CheckKey(cg_keyToolSpade, name) && down) {
 						if (p.GetTeamId() < 2 && p.IsAlive() && p.IsToolSelectable(Player::ToolSpade)) {
 							SetSelectedTool(Player::ToolSpade);
 						}

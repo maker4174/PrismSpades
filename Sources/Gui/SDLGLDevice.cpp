@@ -303,6 +303,7 @@ namespace spades {
 			}
 			if (b)
 				glEnable(type);
+				
 			else
 				glDisable(type);
 			CheckError();

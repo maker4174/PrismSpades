@@ -91,6 +91,7 @@ namespace spades {
 			void ForceReloadDone();
 
 			float GetReloadProgress();
+			float GetInspectProgress();
 			float TimeToNextFire();
 
 			bool IsReadyToShoot();

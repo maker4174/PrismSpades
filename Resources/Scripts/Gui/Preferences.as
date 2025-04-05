@@ -1486,6 +1486,10 @@ namespace spades {
 			layouter.AddToggleField(_Tr("Preferences", "Spectator NoFogMixing"), "cg_specNoFogMix");
 			layouter.AddToggleField(_Tr("Preferences", "Spectator ESP Names"), "cg_specNames");
 			layouter.AddHeading(_Tr("Preferences", " "));
+			
+			layouter.AddHeading(_Tr("Preferences", "OpenGL Effects")); // ADDED
+			layouter.AddToggleField(_Tr("Preferences", "Outlines"), "cg_outlines");	// ADDED
+			layouter.AddSliderField(_Tr("Preferences", "Outline Strength"), "cg_outlineStrength", 2, 5, 1,ConfigNumberFormatter(0, "px"));// ADDED
 
 			layouter.AddHeading(_Tr("Preferences", "Feedbacks"));
 			layouter.AddChoiceField(_Tr("Preferences", "Ignore Chat Messages"), "cg_ignoreChatMessages",

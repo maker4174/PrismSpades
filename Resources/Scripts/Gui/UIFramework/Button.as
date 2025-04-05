@@ -193,38 +193,45 @@ namespace spades {
 		}
 
 		class SimpleButton : spades::ui::Button {
-			SimpleButton(spades::ui::UIManager@ manager) { super(manager); }
-			void Render() {
-				Renderer@ r = Manager.Renderer;
-				Vector2 pos = ScreenPosition;
-				Vector2 size = Size;
+    SimpleButton(spades::ui::UIManager@ manager) { super(manager); }
 
-				if (Toggled or (Pressed and Hover))
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.2F);
-				else if (Hover)
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.12F);
-				else
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.07F);
-				r.DrawImage(null, AABB2(pos.x, pos.y, size.x, size.y));
+    void Render() {
+        Renderer@ r = Manager.Renderer;
+        Vector2 pos = ScreenPosition;
+        Vector2 size = Size;
 
-				if (Toggled or (Pressed and Hover))
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.1F);
-				else if (Hover)
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.07F);
-				else
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.03F);
-				DrawOutlinedRect(r, pos.x, pos.y, pos.x + size.x, pos.y + size.y);
-				
-				pos += Vector2(4.0F, 4.0F);
-				size -= Vector2(8.0F, 8.0F);
-				
-				Vector2 txtSize = Font.Measure(Caption);
-				Vector2 txtPos = pos + (size - txtSize) * Alignment;
-				
-				Font.DrawShadow(Caption, txtPos, 1.0F,
-					Vector4(1, 1, 1, 1), Vector4(0, 0, 0, 0.4F));
-			}
-		}
+        // Draw button background
+        if (Toggled or (Pressed and Hover))
+            r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.2F);
+        else if (Hover)
+            r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.12F);
+        else
+            r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.07F);
+        r.DrawImage(null, AABB2(pos.x, pos.y, size.x, size.y));
+
+        // 🌈 Calculate rainbow color using sine wave
+        float time = Manager.Time; // ✅ Try getting time from Renderer
+        float rColor = (sin(time * 4.0F) + 1.0F) * 0.5F;
+        float gColor = (sin(time * 4.0F + 2.0F) + 1.0F) * 0.5F;
+        float bColor = (sin(time * 4.0F + 4.0F) + 1.0F) * 0.5F;
+
+        // ✅ Use correct SetColor() function
+        r.ColorNP = Vector4(rColor, gColor, bColor, 1.0F);
+        DrawOutlinedRect(r, pos.x, pos.y, pos.x + size.x, pos.y + size.y);
+
+        pos += Vector2(4.0F, 4.0F);
+        size -= Vector2(8.0F, 8.0F);
+
+        Vector2 txtSize = Font.Measure(Caption);
+        Vector2 txtPos = pos + (size - txtSize) * Alignment;
+
+        Font.DrawShadow(Caption, txtPos, 1.0F,
+            Vector4(1, 1, 1, 1), Vector4(0, 0, 0, 0.4F));
+    }
+}
+
+
+
 
 		class CheckBox : spades::ui::Button {
 			CheckBox(spades::ui::UIManager @manager) {
@@ -236,11 +243,16 @@ namespace spades {
 				Vector2 pos = ScreenPosition;
 				Vector2 size = Size;
 				Image@ img = r.RegisterImage("Gfx/UI/CheckBox.png");
+				
+				float time = Manager.Time; // ✅ Try getting time from Renderer
+        			float rColor = (sin(time * 4.0F) + 1.0F) * 0.5F;
+       				float gColor = (sin(time * 4.0F + 2.0F) + 1.0F) * 0.5F;
+        			float bColor = (sin(time * 4.0F + 4.0F) + 1.0F) * 0.5F;
 
 				if (Pressed and Hover)
 					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.2F);
 				else if (Hover)
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.12F);
+					r.ColorNP = Vector4(rColor, gColor, bColor, 0.4F);
 				else
 					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.0F);
 				r.DrawImage(null, AABB2(pos.x, pos.y, size.x, size.y));
@@ -249,6 +261,7 @@ namespace spades {
 				Font.DrawShadow(Caption, pos + (size - txtSize)
 					* Vector2(0.0F, 0.5F) + Vector2(16.0F, 0.0F),
 					1.0F, Vector4(1, 1, 1, 1), Vector4(0, 0, 0, 0.2F));
+					
 
 				r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, Toggled ? 0.9F : 0.6F);
 				r.DrawImage(img, AABB2(pos.x, pos.y + (size.y - 16.0F) * 0.5F, 16.0F, 16.0F),
@@ -289,6 +302,11 @@ namespace spades {
 				Renderer@ r = Manager.Renderer;
 				Vector2 pos = ScreenPosition;
 				Vector2 size = Size;
+				
+				 float time = Manager.Time; // ✅ Try getting time from Renderer
+       				 float rColor = (sin(time * 4.0F) + 1.0F) * 0.5F;
+        			float gColor = (sin(time * 4.0F + 2.0F) + 1.0F) * 0.5F;
+       				 float bColor = (sin(time * 4.0F + 4.0F) + 1.0F) * 0.5F;
 
 				if (not this.Enable)
 					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.07F);
@@ -296,20 +314,20 @@ namespace spades {
 				if (Toggled or (Pressed and Hover))
 					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.2F);
 				else if (Hover)
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.12F);
+					r.ColorNP = Vector4(rColor, gColor, bColor, 0.4F);
 				else
 					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.07F);
 				r.DrawImage(null, AABB2(pos.x, pos.y, size.x, size.y));
 
 				if (not this.Enable)
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.03F);
+					r.ColorNP = Vector4(rColor, gColor, bColor, 0.6F);
 
 				if (Toggled or (Pressed and Hover))
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.06F);
+					r.ColorNP = Vector4(rColor, gColor, bColor, 1.0F);
 				else if (Hover)
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.04F);
+					r.ColorNP = Vector4(rColor, gColor, bColor, 0.4F);
 				else
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.02F);
+					r.ColorNP = Vector4(rColor, gColor, bColor, 1.0F);
 				DrawOutlinedRect(r, pos.x, pos.y, pos.x + size.x, pos.y + size.y);
 
 				Vector2 txtSize = Font.Measure(Caption);
@@ -338,20 +356,28 @@ namespace spades {
 				Renderer@ r = Manager.Renderer;
 				Vector2 pos = ScreenPosition;
 				Vector2 size = Size;
+				
+				
+				float time = Manager.Time; // ✅ Try getting time from Renderer
+			         float rColor = (sin(time * 4.0F) + 1.0F) * 0.5F;
+				 float gColor = (sin(time * 4.0F + 2.0F) + 1.0F) * 0.5F;
+				 float bColor = (sin(time * 4.0F + 4.0F) + 1.0F) * 0.5F;
+
 
 				Vector4 color = Vector4(0.2F, 0.2F, 0.2F, 0.5F);
 				if (Toggled or (Pressed and Hover))
 					color = Vector4(0.7F, 0.7F, 0.7F, 0.9F);
 				else if (Hover)
-					color = Vector4(0.4F, 0.4F, 0.4F, 0.7F);
+					color = Vector4(rColor, gColor, bColor, 0.4F);
 
 				if (not IsEnabled)
 					color.w *= 0.5F;
 
 				r.ColorNP = color;
 				DrawFilledRect(r, pos.x + 1, pos.y + 1, pos.x + size.x - 1, pos.y + size.y - 1);
-
-				r.ColorNP = Vector4(0.0F, 0.0F, 0.0F, 1.0F);
+				
+				 
+				r.ColorNP = Vector4(rColor, gColor, bColor, 1.0F);
 				DrawOutlinedRect(r, pos.x + 1, pos.y + 1, pos.x + size.x - 1, pos.y + size.y - 1);
 
 				Font@ font = this.Font;

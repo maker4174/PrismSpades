@@ -443,6 +443,10 @@ namespace spades {
 				Renderer@ r = Manager.Renderer;
 				Vector2 pos = ScreenPosition;
 				Vector2 size = Size;
+				float time = Manager.Time; // ✅ Try getting time from Renderer
+                                float rColor = (sin(time * 4.0F) + 1.0F) * 0.5F;
+                                float gColor = (sin(time * 4.0F + 2.0F) + 1.0F) * 0.5F;
+                                float bColor = (sin(time * 4.0F + 4.0F) + 1.0F) * 0.5F;
 
 				r.ColorNP = Vector4(0.0F, 0.0F, 0.0F, IsFocused ? 0.3F : 0.1F);
 				r.DrawImage(null, AABB2(pos.x, pos.y, size.x, size.y));
@@ -452,7 +456,8 @@ namespace spades {
 				else if (hover)
 					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.1F);
 				else
-					r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.06F);
+				
+			        r.ColorNP = Vector4(1.0F, 1.0F, 1.0F, 0.06F);
 				DrawOutlinedRect(r, pos.x, pos.y, pos.x + size.x, pos.y + size.y);
 
 				FieldBase::Render();

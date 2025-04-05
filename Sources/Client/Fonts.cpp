@@ -41,11 +41,11 @@ namespace spades {
 
 					guiFontSet = std::make_shared<ngclient::FTFontSet>();
 
-					if (FileManager::FileExists("Gfx/Fonts/AlteDIN1451.ttf")) {
-						guiFontSet->AddFace("Gfx/Fonts/AlteDIN1451.ttf");
-						SPLog("Font 'Alte DIN 1451' loaded");
+					if (FileManager::FileExists("Gfx/Fonts/Krunkerfont.ttf")) {
+						guiFontSet->AddFace("Gfx/Fonts/Krunkerfont.ttf");
+						SPLog("Font 'Krunkerfont' loaded");
 					} else {
-						SPLog("Font 'Alte DIN 1451' was not found");
+						SPLog("Font 'Krunkerfont' was not found");
 					}
 
 					// Preliminary custom font support

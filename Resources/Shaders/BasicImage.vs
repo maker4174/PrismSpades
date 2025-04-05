@@ -19,31 +19,33 @@
  */
 
 
-
 attribute vec2 positionAttribute;
 attribute vec4 colorAttribute;
 attribute vec2 textureCoordAttribute;
 
 uniform vec2 invScreenSizeFactored;
 uniform vec2 invTextureSize;
+uniform float rotation;  // Rotation angle in radians
 
 varying vec4 color;
 varying vec2 texCoord;
 
 void main() {
-	
-	vec2 pos = positionAttribute;
-	
-	pos = pos * invScreenSizeFactored + vec2(-1., 1.);
-	
-	/*
-	pos /= screenSize;
-	pos = pos * 2. - 1.;
-	pos.y = -pos.y; */
-	
-	gl_Position = vec4(pos, 0.5, 1.);
-	
-	color = colorAttribute;
-	texCoord = textureCoordAttribute * invTextureSize;
+    vec2 pos = positionAttribute;
+
+    // Apply 2D rotation matrix
+    float cosTheta = cos(rotation);
+    float sinTheta = sin(rotation);
+    mat2 rotationMatrix = mat2(cosTheta, -sinTheta, sinTheta, cosTheta);
+    pos = rotationMatrix * pos;
+
+    // Transform to clip space
+    pos = pos * invScreenSizeFactored + vec2(-1., 1.);
+
+    gl_Position = vec4(pos, 0.5, 1.0);
+
+    color = colorAttribute;
+    texCoord = textureCoordAttribute * invTextureSize;
 }
+
 

@@ -658,9 +658,15 @@ namespace spades {
 								blocks.push_back(p->GetBlockCursorPos());
 							}
 
+						
 							bool active = p->IsBlockCursorActive() && CanLocalPlayerUseToolNow();
+							float time = GetWorld()->GetTime();  // Get time for dynamic colors
+							float r = (sin(time) + 1.0f) * 0.5f;  // Red oscillates between 0-1
+		float g = (sin(time + 2.0f) + 1.0f) * 0.5f;  // Green phase-shifted
+float b = (sin(time + 4.0f) + 1.0f) * 0.5f;  // Blue phase-shifted
+								Vector3 color = {r, g, b};
 
-							Vector3 color = { 1.f, 1.f, 1.f };
+							
 							if (!active)
 								color = MakeVector3(1.f, 1.f, 0.f);
 							if ((int)blocks.size() > p->GetNumBlocks())
@@ -708,6 +714,7 @@ namespace spades {
 
 							for (size_t i = 0; i < blocks.size(); i++) {
 								IntVector3 &v = blocks[i];
+
 
 								if (active) {
 
@@ -862,7 +869,11 @@ namespace spades {
 			bool active = p->IsBlockCursorActive();
 			Vector3 color = {1.f, 1.f, 1.f};
 			if (!active)
-				color = MakeVector3(1.f, 1.f, 0.f);
+			float time = GetWorld()->GetTime();  // Get time for dynamic colors
+			float r = (sin(time) + 1.0f) * 0.5f;  // Red oscillates between 0-1
+float g = (sin(time + 2.0f) + 1.0f) * 0.5f;  // Green phase-shifted
+float b = (sin(time + 4.0f) + 1.0f) * 0.5f;  // Blue phase-shifted
+				color = MakeVector3(r, g, b);
 
 			switch (p->GetCurrentVolumeType()) {
 				case VolumeSingle:
@@ -882,8 +893,8 @@ namespace spades {
 							bool solid = blocks.size() > 2 && map->IsSolid(v.x, v.y, v.z);
 							ModelRenderParam param;
 							param.ghost = true;
-							param.opacity = active && !solid ? .7f : .3f;
 							param.customColor = color;
+							param.opacity = active && !solid ? .7f : .3f;
 							param.matrix = Matrix4::Translate(MakeVector3(v.x + .5f, v.y + .5f, v.z + .5f));
 							param.matrix = param.matrix * Matrix4::Scale(1.f / 24.f + (solid ? 0.0005f : 0.f));
 							renderer->RenderModel(blocks.size() > 1 ? *curLine : *curSingle, param);
