@@ -66,9 +66,6 @@ namespace spades {
 		float Weapon::GetReloadProgress() {
 			return (time - reloadStartTime) / (reloadEndTime - reloadStartTime);
 		}
-		float Weapon::GetInspectProgress() {
-			return (time - reloadStartTime) / (reloadEndTime - reloadStartTime);
-		}
 
 		float Weapon::TimeToNextFire() { return nextShotTime - time; }
 
@@ -192,8 +189,6 @@ namespace spades {
 			if (world.GetListener())
 				world.GetListener()->PlayerReloadingWeapon(owner);
 		}
-		
-		void Weapon::Inspect
 
 		void Weapon::ForceReloadDone() {
 			int newStock;

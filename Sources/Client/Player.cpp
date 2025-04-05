@@ -405,14 +405,6 @@ namespace spades {
 			if (this == world.GetLocalPlayer() && weapon->IsReloading())
 				reloadingServerSide = true;
 		}
-		void Player::Inspect() {
-			SPADES_MARK_FUNCTION();
-			if (health == 0) {
-				// dead man cannot reload
-				return;
-			}
-			weapon->Reload();
-		}
 
 		void Player::ReloadDone(int clip, int stock) {
 			reloadingServerSide = false;
