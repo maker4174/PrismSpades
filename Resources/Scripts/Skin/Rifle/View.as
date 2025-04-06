@@ -120,6 +120,7 @@
 		private Model@ singleVoxelModel;
 		
 		private Image@ smallCircleImage;
+		private Image@ Vignette;
 		private Image@[] muzzleFlashes(20);
 		
 		private AudioChunk@ fireSound;
@@ -193,6 +194,9 @@
 			@reloadSound = dev.RegisterSound
 				("Sounds/Weapons/Rifle/ReloadLocal.wav");
 				
+			@Vignette = renderer.RegisterImage
+				( "Gfx/Vignette.png" );
+				
 			for ( uint i = 0; i < 20; i++ ) {
 				string dir = "Gfx/Flash/Weapons/Rifle/";
 				dir += i / 100; 			// hundreds
@@ -252,6 +256,14 @@
 			}
 		}
 		
+                
+
+
+
+
+
+
+
 		// redefined from BasicViewWeapon.as
 		Matrix4 GetViewWeaponMatrix() {	
 			Matrix4 mat;
@@ -599,10 +611,15 @@
 				float putdown = 1.0 - raiseState;
 				putdown = cubicIn(putdown);
 					ModelRenderParam param;
-					Matrix4 scopeMatrix = eyeMatrix * CreateScaleMatrix(0.01f) * CreateTranslateMatrix(Vector3(0.0, 50.0, 0.0))*CreateRotateMatrix( Vector3(0.0, 20.0, 0.0),20* swing.x);
+					Matrix4 scopeMatrix = eyeMatrix * CreateScaleMatrix(0.1f) * CreateTranslateMatrix(Vector3(0.0,70.0,0.0)) * CreateRotateMatrix(Vector3(0.0, 20.0, 0.0), 20 * swing.x * AimDownSightStateSmooth) ;    
+
 					param.matrix = scopeMatrix;
 					param.depthHack = true;
 					renderer.AddModel(scopeModel, param);
+					
+					
+
+
 				
 					// vertical hair
 					param.matrix = scopeMatrix 
@@ -615,11 +632,25 @@
 						* CreateTranslateMatrix(0.0, 30.0, 0.0)
 						* CreateScaleMatrix(40.0, 0.1, 0.1);
 					renderer.AddModel(singleVoxelModel, param);
+					// Set semi-transparent color
+					
+					// Offset the sprite clearly in front of the scope (along Z)
+// Stick the vignette directly in front of the camera
+Vector3 vignettePos = eyeMatrix * Vector3(0.0, 5.0, 0.0); // 50 units in front of camera view
+
+// Slight transparency so it doesn't block everything
+renderer.ColorP = Vector4(1.0, 1.0, 1.0, 0.9); 
+
+// Draw the vignette nice and big
+renderer.AddSprite(Vignette, vignettePos, 1.0f, 0.0f);
+
 				}
 				LeftHandPosition = leftHand;
 				RightHandPosition = rightHand;
 			}
+
 			
+
 			// Muzzle flash
 			// Only appears if we're not scoped in
 			if(AimDownSightStateSmooth < 1.0) { 
