@@ -346,7 +346,7 @@ namespace spades {
 			
 
 			// Check if player is aiming down sights (ADS)
-			if (AimDownSightStateSmooth > 80.0f) {
+			if (AimDownSightStateSmooth > 0.8f) {
     // Find correct ADS pivot position (center of scope)
     Vector3 adsPivot = Vector3(0.f, -29.f, 25.f);
 
@@ -363,7 +363,7 @@ if (AimDownSightStateSmooth < 1.0f) {
     weapMatrix *= CreateTranslateMatrix(hipOffset * (1.0f - AimDownSightStateSmooth)); 
 
     // Reduce sudden rotation by interpolating swing effect
-    weapMatrix *= SimpleRotate(Vector3(0.f, rad(90.f), 0.f) * swing.x * 20 * AimDownSightStateSmooth);
+    weapMatrix *= SimpleRotate(Vector3(0.f, rad(90.f), 0.f) * swing.x * 20 *0);
 }
 
 			
