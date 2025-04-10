@@ -29,11 +29,13 @@ Credits
 And many others which weren't mentioned here.
 
 
-4 of Spades credits
+PrismSpades credits
 -------------------
 
 "VierEck.":
 MapEditor, Demo Replay/Recording based on aos_replay, Chat Macros, Performance Config
+"Ashy.":
+Special thanks to you for being my light in the dark, my constant support, and the heart behind so many of PrismSpades' ideas. I couldn’t have done this without you.
 "Nuceto":
 Killfeed image feature, Specific word message highlight, Colored chat message, Colored stats, HUD and Minimap transparency, Teammate map sector in chat message, HitTest Debug display transparency and size, Default Fade Weapon Models, killfeed distance analisation, improved footstep audio
 "ZeroGrey":
