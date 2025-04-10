@@ -121,6 +121,7 @@
 		
 		private Image@ smallCircleImage;
 		private Image@ Vignette;
+		private Image@ scopeImg;
 		private Image@[] muzzleFlashes(20);
 		
 		private AudioChunk@ fireSound;
@@ -196,6 +197,8 @@
 				
 			@Vignette = renderer.RegisterImage
 				( "Gfx/Vignette.png" );
+			@scopeImg = renderer.RegisterImage
+				("Gfx/scope.png");
 				
 			for ( uint i = 0; i < 20; i++ ) {
 				string dir = "Gfx/Flash/Weapons/Rifle/";
@@ -250,6 +253,20 @@
 				renderer.DrawImage(smallCircleImage,
 				Vector2((renderer.ScreenWidth-smallCircleImage.Width) * 0.5,
 					(renderer.ScreenHeight-smallCircleImage.Height) * 0.5));
+			}
+			if(AimDownSightStateSmooth > 0.8){
+
+			renderer.ColorNP = Vector4(1.0,1.0,1.0,1.0);
+			
+float width = scopeImg.Width * 0.5f;
+float height = scopeImg.Height * 0.5f;
+
+float x = (renderer.ScreenWidth - width) * 0.5f;
+float y = (renderer.ScreenHeight - height) * 0.5f;
+
+renderer.DrawImage(scopeImg, AABB2(x, y, width, height));
+					  	
+			
 			}
 			if(AimDownSightStateSmooth < 0.99) {
 				BasicViewWeapon::Draw2D();
@@ -621,7 +638,7 @@
 
 
 				
-					// vertical hair
+					/*// vertical hair
 					param.matrix = scopeMatrix 
 						* CreateTranslateMatrix(0.0, 30.0, 0.0)
 						* CreateScaleMatrix(0.1, 0.1, 40.0);
@@ -632,18 +649,19 @@
 						* CreateTranslateMatrix(0.0, 30.0, 0.0)
 						* CreateScaleMatrix(40.0, 0.1, 0.1);
 					renderer.AddModel(singleVoxelModel, param);
-					// Set semi-transparent color
+					// Set semi-transparent color*/
 					
 					// Offset the sprite clearly in front of the scope (along Z)
 // Stick the vignette directly in front of the camera
 Vector3 vignettePos = eyeMatrix * Vector3(0.0, 5.0, 0.0); // 50 units in front of camera view
 
 // Slight transparency so it doesn't block everything
-renderer.ColorP = Vector4(1.0, 1.0, 1.0, 0.9); 
+renderer.ColorP = Vector4(0.0, 0.0, 0.0, 1.0); 
 
 // Draw the vignette nice and big
 renderer.AddSprite(Vignette, vignettePos, 1.0f, 0.0f);
-
+				
+		
 				}
 				LeftHandPosition = leftHand;
 				RightHandPosition = rightHand;
