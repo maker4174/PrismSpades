@@ -74,22 +74,22 @@ namespace spades {
 				  renderer,
 				  renderer->RegisterImage("Gfx/Fonts/SquareFontBig.png").GetPointerOrNull(),
 				  (const int *)SquareFontBigMap, 48, 8.f, true);
-				font->SetGlyphYRange(11.f, 37.f);
+				font->SetGlyphYRange(-5.f, 25.f);
 				SPLog("Font 'SquareFont (Large)' Loaded");
 				squareDesignFont = std::move(font).Cast<IFont>();
 			}
 			largeFont = Handle<ngclient::FTFont>::New(
-			              renderer, GlobalFontInfo::GetInstance().guiFontSet, 34.f, 48.f)
-			              .Cast<IFont>();
-			mediumFont = Handle<ngclient::FTFont>::New(
-			               renderer, GlobalFontInfo::GetInstance().guiFontSet, 24.f, 32.f)
-			               .Cast<IFont>();
-			headingFont = Handle<ngclient::FTFont>::New(
-			                renderer, GlobalFontInfo::GetInstance().guiFontSet, 20.f, 26.f)
-			                .Cast<IFont>();
-			guiFont = Handle<ngclient::FTFont>::New(
-			            renderer, GlobalFontInfo::GetInstance().guiFontSet, 16.f, 20.f)
-			            .Cast<IFont>();
+	              renderer, GlobalFontInfo::GetInstance().guiFontSet, 18.f, 22.f) // Lowered more
+	              .Cast<IFont>();
+	mediumFont = Handle<ngclient::FTFont>::New(
+	               renderer, GlobalFontInfo::GetInstance().guiFontSet, 20.f, 20.f) // Pushed further down
+	               .Cast<IFont>();
+	headingFont = Handle<ngclient::FTFont>::New(
+	                renderer, GlobalFontInfo::GetInstance().guiFontSet, 10.f, 14.f) // Pushed downward
+	                .Cast<IFont>();
+	guiFont = Handle<ngclient::FTFont>::New(
+	            renderer, GlobalFontInfo::GetInstance().guiFontSet, 10.f, 12.f) // Extreme shift down
+	            .Cast<IFont>();
 		}
 
 		FontManager::~FontManager() {}
