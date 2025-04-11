@@ -836,19 +836,19 @@ namespace spades {
 		}
 	
 		private array<string> randomTexts = {
-			"Hi ^w^", "VierEck was here", "Press F4 and see what happens ;)",
-			"\"IV of Spades\" is the name of a Philippine rock band",
+			"Hi ^w^", "maker,Ashy,Viereck was here", "Press F4 and see what happens ;) - Viereck",
+			"The client's name,\"Prismspades\" was given to by Ashy",
 			"The Word \"Deuce\" can mean \"a side of a dice with two spots\"",
 			"The Head of the Deuce Model kind of looks like a dice, doesn't it?",
-			"https://github.com/VierEck/openspades/tree/4", "Hello World",
-			"Made with Love. Powered by hamster wheels", "Bavaria is a Country", 
+			"https://github.com/VierEck/openspades/tree/4", "Za Warudo",
+			"Made with Love. This client is not gay", "I'mma go to bed zzz", 
 			"Right click in the Demos and Maps list to enter the context menu",
 			"Visit https://aloha.pk for more Ace of Spades content and more",
 			"Use Arrow Keys in F4 free mode to change color", "<3", 
 			"Press E to pick the color of a map block in F4 free mode",
 			"Checkout ZeroSpades by ZeroGrey", "Checkout NucetoSpades by Nuceto", 
-			"Checkout DankSpades by Mile", "Checkout OpenSpadesPlus by NonPerforming",
-			"Thanks 4 playing on IV of Spades", "https://aloha.pk/t/iv-of-spades/23639/1",
+			"Checkout DankSpades by Mile", "Checkout OpenSpadesPlus by NonPerforming","Checkout IV of Spades by Viereck",
+			"Thanks 4 playing on Prismspades", "https://aloha.pk/t/iv-of-spades/23639/1",
 			"Look at the stars, go a little bit faster", 
 		};
 		uint rand = GetRandom(0, int(randomTexts.length) - 1);
