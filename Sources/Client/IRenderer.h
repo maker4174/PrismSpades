@@ -21,7 +21,7 @@
 #pragma once
 
 #include <array>
-#include <glm/vec4.hpp>
+
 #include "IImage.h"
 #include "IModel.h"
 #include "SceneDefinition.h"
@@ -60,7 +60,7 @@ namespace spades {
 			bool ghost = false;
 			/** Specifies the opacity of the model. Ignored if `ghost` is `false`. */
 			float opacity = 1.0;
-			glm::vec4 overrideColor = glm::vec4(1.0f);
+
 			int playerID = -1;
 		};
 
